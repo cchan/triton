@@ -339,9 +339,8 @@ void CuptiProfiler::CuptiProfilerPimpl::doStart() {
   setGraphCallbacks(subscriber, /*enable=*/true);
   setRuntimeCallbacks(subscriber, /*enable=*/true);
   setDriverCallbacks(subscriber, /*enable=*/true);
-  if (profiler.isPCSamplingEnabled()) {
+  if (profiler.isPCSamplingEnabled())
     setResourceCallbacks(subscriber, /*enable=*/true);
-  }
 }
 
 void CuptiProfiler::CuptiProfilerPimpl::doFlush() {
