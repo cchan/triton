@@ -2,6 +2,7 @@
 #include "Data/Metric.h"
 #include "Driver/GPU/CudaApi.h"
 #include "Driver/GPU/CuptiApi.h"
+#include "Utility/Atomic.h"
 #include "Utility/Map.h"
 #include "Utility/String.h"
 #include <memory>
@@ -248,10 +249,8 @@ CUpti_PCSamplingConfigurationInfo ConfigureData::configureCollectionMode() {
 }
 
 void ConfigureData::initialize(CUcontext context) {
-  if (this->initialized)
-    return;
-  this->initialized = true;
   this->context = context;
+  cupti::getContextId<true>(context, &contextId);
   auto stallReasonsInfo = configureStallReasons();
   auto samplingPeriodInfo = configureSamplingPeriod();
   auto hardwareBufferInfo = configureHardwareBufferSize();
@@ -268,7 +267,9 @@ void ConfigureData::initialize(CUcontext context) {
 ConfigureData *CuptiPCSampling::getConfigureData(CUcontext context) {
   uint32_t contextId;
   cupti::getContextId<true>(context, &contextId);
-  return &contextIdToConfigureData[contextId];
+  auto *configureData = &contextIdToConfigureData[contextId];
+  configureData->initialize(context);
+  return configureData;
 }
 
 CubinData *CuptiPCSampling::getCubinData(uint64_t cubinCrc) {
@@ -276,16 +277,24 @@ CubinData *CuptiPCSampling::getCubinData(uint64_t cubinCrc) {
 }
 
 void CuptiPCSampling::initialize(CUcontext context) {
+  uint32_t contextId = 0;
+  cupti::getContextId<true>(context, &contextId);
+  if (contextInitialized.contain(contextId))
+    return;
+  std::unique_lock<std::mutex> lock(contextMutex);
   auto *configureData = getConfigureData(context);
-  configureData->initialize(context);
   enablePCSampling(context);
+  contextInitialized.insert(contextId);
 }
 
 void CuptiPCSampling::start(CUcontext context) {
+  initialize(context);
+  std::unique_lock<std::mutex> lock(pcSamplingMutex);
   if (pcSamplingStarted)
     return;
   auto *configureData = getConfigureData(context);
   startPCSampling(context);
+  pcSamplingStarted = true;
 }
 
 void CuptiPCSampling::processPCSamplingData(ConfigureData *configureData,
@@ -337,6 +346,7 @@ void CuptiPCSampling::processPCSamplingData(ConfigureData *configureData,
 }
 
 void CuptiPCSampling::stop(CUcontext context, uint64_t externId, bool isAPI) {
+  std::unique_lock<std::mutex> lock(pcSamplingMutex);
   if (!pcSamplingStarted)
     return;
   stopPCSampling(context);
@@ -347,6 +357,10 @@ void CuptiPCSampling::stop(CUcontext context, uint64_t externId, bool isAPI) {
 
 void CuptiPCSampling::finalize(CUcontext context) {
   disablePCSampling(context);
+  auto *configureData = getConfigureData(context);
+  auto contextId = configureData->contextId;
+  contextIdToConfigureData.erase(contextId);
+  contextInitialized.erase(contextId);
 }
 
 void CuptiPCSampling::loadModule(CUpti_ResourceData *resourceData) {

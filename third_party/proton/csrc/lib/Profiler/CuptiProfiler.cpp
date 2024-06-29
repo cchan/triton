@@ -170,6 +170,8 @@ void setResourceCallbacks(CUpti_SubscriberHandle subscriber, bool enable) {
 
   CALLBACK_ENABLE(CUPTI_CBID_RESOURCE_MODULE_LOADED);
   CALLBACK_ENABLE(CUPTI_CBID_RESOURCE_MODULE_UNLOAD_STARTING);
+  CALLBACK_ENABLE(CUPTI_CBID_RESOURCE_CONTEXT_CREATED);
+  CALLBACK_ENABLE(CUPTI_CBID_RESOURCE_CONTEXT_DESTROY_STARTING);
 #undef CALLBACK_ENABLE
 }
 
@@ -258,6 +260,10 @@ void CuptiProfiler::CuptiProfilerPimpl::callbackFn(void *userData,
       pImpl->pcSampling.loadModule(resourceData);
     } else if (cbId == CUPTI_CBID_RESOURCE_MODULE_UNLOAD_STARTING) {
       pImpl->pcSampling.unloadModule(resourceData);
+    } else if (cbId == CUPTI_CBID_RESOURCE_CONTEXT_CREATED) {
+      pImpl->pcSampling.initialize(resourceData->context);
+    } else if (cbId == CUPTI_CBID_RESOURCE_CONTEXT_DESTROY_STARTING) {
+      pImpl->pcSampling.finalize(resourceData->context);
     } else {
       auto *graphData =
           static_cast<CUpti_GraphData *>(resourceData->resourceDescriptor);
@@ -356,16 +362,20 @@ void CuptiProfiler::CuptiProfilerPimpl::doFlush() {
   cuda::ctxGetCurrent<false>(&cuContext);
   if (cuContext)
     cuda::ctxSynchronize<true>();
-  profiler.correlation.flush(
-      /*maxRetries=*/100, /*sleepMs=*/10,
-      /*flush=*/[]() {
-        cupti::activityFlushAll<true>(
-            /*flag=*/0);
-      });
-  // CUPTI_ACTIVITY_FLAG_FLUSH_FORCED is used to ensure that even incomplete
-  // activities are flushed so that the next profiling session can start with
-  // new activities.
-  cupti::activityFlushAll<true>(/*flag=*/CUPTI_ACTIVITY_FLAG_FLUSH_FORCED);
+  if (profiler.isPCSamplingEnabled()) {
+    pcSampling.finalize(cuContext);
+  } else {
+    profiler.correlation.flush(
+        /*maxRetries=*/100, /*sleepMs=*/10,
+        /*flush=*/[]() {
+          cupti::activityFlushAll<true>(
+              /*flag=*/0);
+        });
+    // CUPTI_ACTIVITY_FLAG_FLUSH_FORCED is used to ensure that even incomplete
+    // activities are flushed so that the next profiling session can start with
+    // new activities.
+    cupti::activityFlushAll<true>(/*flag=*/CUPTI_ACTIVITY_FLAG_FLUSH_FORCED);
+  }
 }
 
 void CuptiProfiler::CuptiProfilerPimpl::doStop() {

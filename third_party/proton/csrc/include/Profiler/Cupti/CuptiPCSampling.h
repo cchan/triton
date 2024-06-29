@@ -68,8 +68,8 @@ struct ConfigureData {
   // The sampling period in cycles = 2^frequency
   static constexpr uint32_t DefaultFrequency = 10;
 
-  bool initialized{false};
   CUcontext context{};
+  uint32_t contextId;
   uint32_t numStallReasons{};
   uint32_t numValidStallReasons{};
   char **stallReasonNames{};
@@ -105,10 +105,13 @@ private:
   void processPCSamplingData(ConfigureData *configureData, uint64_t externId,
                              bool isAPI);
 
-  ThreadSafeMap<size_t, ConfigureData> contextIdToConfigureData;
+  ThreadSafeMap<uint32_t, ConfigureData> contextIdToConfigureData;
   ThreadSafeMap<size_t, CubinData> cubinCrcToCubinData;
+  ThreadSafeSet<uint32_t> contextInitialized;
 
-  std::atomic<bool> pcSamplingStarted{false};
+  bool pcSamplingStarted{false};
+  std::mutex pcSamplingMutex{};
+  std::mutex contextMutex{};
 };
 
 } // namespace proton
