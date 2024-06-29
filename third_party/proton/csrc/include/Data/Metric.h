@@ -151,8 +151,8 @@ private:
 class PCSamplingMetric : public Metric {
 public:
   enum PCSamplingMetricKind : int {
-    NumSamples,
-    NumStallSamples,
+    SampleCount,
+    StallSampleCount,
     StallBranchResolving,
     StallNoInstruction,
     StallShortScoreboard,
@@ -170,6 +170,7 @@ public:
     StallMisc,
     StallDispatchStall,
     StallSleeping,
+    StallSelected,
     Count,
   };
 
@@ -180,8 +181,8 @@ public:
                    uint64_t stallSamples)
       : PCSamplingMetric() {
     this->values[kind] = stallSamples;
-    this->values[NumSamples] = samples;
-    this->values[NumStallSamples] = stallSamples;
+    this->values[SampleCount] = samples;
+    this->values[StallSampleCount] = stallSamples;
   }
 
   virtual const std::string getName() const { return "PCSamplingMetric"; }
@@ -194,25 +195,26 @@ public:
 
 private:
   const static inline std::string VALUE_NAMES[PCSamplingMetricKind::Count] = {
-      "NumSamples",
-      "NumStallSamples",
-      "StallBranchResolving",
-      "StallNoInstruction",
-      "StallShortScoreboard",
-      "StallWait",
-      "StallLongScoreboard",
-      "StallTexThrottle",
-      "StallBarrier",
-      "StallMembar",
-      "StallIMCMiss",
-      "StallMIOThrottle",
-      "StallMathPipeThrottle",
-      "StallDrain",
-      "StallLGThrottle",
-      "StallNotSelected",
-      "StallMisc",
-      "StallDispatchStall",
-      "StallSleeping",
+      "SampleCount",
+      "StallSampleCount",
+      "StalledBranchResolving",
+      "StalledNoInstruction",
+      "StalledShortScoreboard",
+      "StalledWait",
+      "StalledLongScoreboard",
+      "StalledTexThrottle",
+      "StalledBarrier",
+      "StalledMembar",
+      "StalledIMCMiss",
+      "StalledMIOThrottle",
+      "StalledMathPipeThrottle",
+      "StalledDrain",
+      "StalledLGThrottle",
+      "StalledNotSelected",
+      "StalledMisc",
+      "StalledDispatchStall",
+      "StalledSleeping",
+      "StalledSelected",
   };
 };
 

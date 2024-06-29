@@ -109,7 +109,7 @@ private:
   ThreadSafeMap<size_t, CubinData> cubinCrcToCubinData;
   ThreadSafeSet<uint32_t> contextInitialized;
 
-  bool pcSamplingStarted{false};
+  std::atomic<bool> pcSamplingStarted{false};
   std::mutex pcSamplingMutex{};
   std::mutex contextMutex{};
 };

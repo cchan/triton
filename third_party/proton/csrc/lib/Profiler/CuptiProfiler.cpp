@@ -338,15 +338,16 @@ void CuptiProfiler::CuptiProfilerPimpl::callbackFn(void *userData,
 }
 
 void CuptiProfiler::CuptiProfilerPimpl::doStart() {
-  cupti::activityRegisterCallbacks<true>(allocBuffer, completeBuffer);
-  cupti::activityEnable<true>(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL);
-  // TODO: switch to directly subscribe the APIs and measure overhead
   cupti::subscribe<true>(&subscriber, callbackFn, nullptr);
+  if (profiler.isPCSamplingEnabled()) {
+    setResourceCallbacks(subscriber, /*enable=*/true);
+  } else {
+    cupti::activityRegisterCallbacks<true>(allocBuffer, completeBuffer);
+    cupti::activityEnable<true>(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL);
+  }
   setGraphCallbacks(subscriber, /*enable=*/true);
   setRuntimeCallbacks(subscriber, /*enable=*/true);
   setDriverCallbacks(subscriber, /*enable=*/true);
-  if (profiler.isPCSamplingEnabled())
-    setResourceCallbacks(subscriber, /*enable=*/true);
 }
 
 void CuptiProfiler::CuptiProfilerPimpl::doFlush() {
@@ -379,12 +380,14 @@ void CuptiProfiler::CuptiProfilerPimpl::doFlush() {
 }
 
 void CuptiProfiler::CuptiProfilerPimpl::doStop() {
-  cupti::activityDisable<true>(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL);
+  if (profiler.isPCSamplingEnabled()) {
+    setResourceCallbacks(subscriber, /*enable=*/false);
+  } else {
+    cupti::activityDisable<true>(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL);
+  }
   setGraphCallbacks(subscriber, /*enable=*/false);
   setRuntimeCallbacks(subscriber, /*enable=*/false);
   setDriverCallbacks(subscriber, /*enable=*/false);
-  if (profiler.isPCSamplingEnabled())
-    setResourceCallbacks(subscriber, /*enable=*/false);
   cupti::unsubscribe<true>(subscriber);
   cupti::finalize<true>();
 }
