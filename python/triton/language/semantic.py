@@ -1473,9 +1473,9 @@ class TritonSemantic(Generic[TensorTy]):
             max_num_imprecise_acc: int, out_dtype: tl.dtype) -> TensorTy:
         assert lhs.type.is_block() and rhs.type.is_block()
 
-        if lhs.dtype.is_fp8() and rhs.dtype.is_fp8():
+        if lhs.dtype.is_fp8() or rhs.dtype.is_fp8():
             # All combinations of supported fp8 x fp8 are permitted
-            pass
+            assert lhs.dtype.is_fp8() and rhs.dtype.is_fp8(), "dot does not support one fp8 operand and one non-fp8 operand"
         else:
             assert lhs.dtype in (tl.int8, tl.uint8, tl.float16, tl.bfloat16, tl.float32,
                                  tl.float64), f"Unsupported lhs dtype {lhs.dtype}"
